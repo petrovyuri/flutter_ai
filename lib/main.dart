@@ -2,7 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_ai/env.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
-final model = GenerativeModel(model: 'gemini-pro', apiKey: api);
+final generationConfig = GenerationConfig(
+  maxOutputTokens: 600,
+  temperature: 1,
+  topP: 0.95,
+  topK: 40,
+);
+
+final model = GenerativeModel(
+  generationConfig: generationConfig,
+  safetySettings: [
+    SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.high),
+  ],
+  model: 'gemini-pro',
+  apiKey: api,
+);
+
+// 
 
 void main() {
   runApp(const MyApp());
@@ -80,8 +96,10 @@ class _GeminiChatState extends State<_GeminiChat> {
       genText = "Генерация...";
     });
     await model.generateContent(content).then((value) {
-      genText = value.text ?? "Error";
-      setState(() {});
+      genText = value.text ?? value.candidates.first.finishMessage.toString();
+    }).catchError((e) {
+      genText = e.toString();
     });
+    setState(() {});
   }
 }

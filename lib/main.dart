@@ -1,105 +1,70 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_ai/env.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
 
-final generationConfig = GenerationConfig(
+final _generationConfig = GenerationConfig(
   maxOutputTokens: 600,
-  temperature: 1,
+  temperature: 2.0,
   topP: 0.95,
   topK: 40,
 );
 
 final model = GenerativeModel(
-  generationConfig: generationConfig,
-  safetySettings: [
-    SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.high),
-  ],
+  generationConfig: _generationConfig,
+  httpClient: http.Client(),
   model: 'gemini-pro',
   apiKey: api,
+  safetySettings: [
+    SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.low),
+  ],
 );
 
-// 
-
 void main() {
-  runApp(const MyApp());
+  runApp(MaterialApp(
+      home: Scaffold(
+          appBar: AppBar(
+            title: const Text('Flutter AI'),
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: _GeminiChat(),
+          ))));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-        home: Scaffold(
-            appBar: AppBar(
-              title: const Text('Flutter AI'),
-            ),
-            body: const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: _GeminiChat(),
-            )));
-  }
-}
-
-class _GeminiChat extends StatefulWidget {
-  const _GeminiChat();
-
-  @override
-  State<_GeminiChat> createState() => _GeminiChatState();
-}
-
-class _GeminiChatState extends State<_GeminiChat> {
-  String genText = "";
-  final _textEditController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _textEditController.text = genText;
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    _textEditController.dispose();
-  }
+class _GeminiChat extends StatelessWidget {
+  final ValueNotifier<String> _genText = ValueNotifier("");
+  final TextEditingController _textEditController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-        child: Column(
+    return Column(
       children: [
         TextField(
-          controller: _textEditController,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-          ),
-        ),
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+            ),
+            controller: _textEditController),
         ElevatedButton(
-          onPressed: () {
-            _fetchData();
-          },
+          onPressed: _fetchData,
           child: const Text('Генерация'),
         ),
-        SizedBox(
-          height: MediaQuery.of(context).size.height * 0.5,
-          child: SingleChildScrollView(
-            child: Text(genText),
-          ),
+        ValueListenableBuilder<String>(
+          valueListenable: _genText,
+          builder: (_, value, __) {
+            return SizedBox(
+                height: 300, child: SingleChildScrollView(child: Text(value)));
+          },
         )
       ],
-    ));
+    );
   }
 
   Future<void> _fetchData() async {
     final content = [Content.text(_textEditController.text)];
-    setState(() {
-      genText = "Генерация...";
-    });
+    _genText.value = "Генерация...";
     await model.generateContent(content).then((value) {
-      genText = value.text ?? value.candidates.first.finishMessage.toString();
-    }).catchError((e) {
-      genText = e.toString();
+      _genText.value = value.text ?? "Error";
     });
-    setState(() {});
   }
 }
